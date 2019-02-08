@@ -9,8 +9,8 @@ import matplotlib.animation as animation
 import matplotlib.patches as patches
 from time import time
 from datetime import datetime
-from basic_systems import *
-from helper_func import *
+from systemcontrol.basic_systems import *
+from systemcontrol.helper_func import *
 import json
 
 

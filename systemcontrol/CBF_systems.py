@@ -4,8 +4,8 @@ control systems with general CBF implementations
 '''
 import numpy as np
 from math import ceil, log
-from basic_systems import *
-from helper_func import *
+from systemcontrol.basic_systems import *
+from systemcontrol.helper_func import *
 from quadprog import solve_qp
 
 
