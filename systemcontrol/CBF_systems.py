@@ -51,6 +51,7 @@ class CBFSystem(ControlSystem):
         try:
             u_opt = solve_qp(self.G, ud, A, b)[0]
         except Exception as e:
+            print(e)
             u_opt = np.array([0., 0])
         return u_opt
 
