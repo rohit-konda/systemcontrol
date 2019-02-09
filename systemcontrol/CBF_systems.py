@@ -31,8 +31,10 @@ class CBFSystem(ControlSystem):
 
     # actuation constraints
     def input_cons(self):
-        raise NotImplementedError
-        # return (Ca, ba)
+        l = np.shape(self.g())[1]
+        Ca = np.zeros((l, 1), dtype='float32')
+        ba = np.array([-1.])
+        return (Ca, ba)
 
     # control barrier: returns safety constraints
     def CBF(self):
@@ -46,12 +48,10 @@ class CBFSystem(ControlSystem):
 
         A = np.hstack((Cc, Ca))
         b = np.concatenate((bc, ba))
-
         try:
             u_opt = solve_qp(self.G, ud, A, b)[0]
-        except:
-            u_opt = np.array([0, 0])
-
+        except Exception as e:
+            u_opt = np.array([0., 0])
         return u_opt
 
 
@@ -90,7 +90,6 @@ class FeasibleCBF(CBFSystem):
         Lfh = h_dot @ self.f()
         Lgh = h_dot @ self.g()
         alpha = self.a(self.h(self.x))
-        print(self.h(self.x), '  ', self.x)
         C = np.reshape(np.array(Lgh), (-1, 1))
         b = np.array([-(alpha + Lfh)])
         return C, b + self.epsilon
@@ -109,7 +108,6 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
     # feedback controller using coupled CBF
     def u(self):
         nom = self.nominal()
-        print('good')
 
         if self.sys_list:
             sysnom = np.concatenate([sys.nominal() for sys in self.sys_list])
