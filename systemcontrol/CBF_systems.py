@@ -7,6 +7,7 @@ from math import ceil, log
 from systemcontrol.basic_systems import *
 from systemcontrol.helper_func import *
 from quadprog import solve_qp
+import traceback
 
 
 class CBFSystem(ControlSystem):
@@ -50,8 +51,8 @@ class CBFSystem(ControlSystem):
         b = np.concatenate((bc, ba))
         try:
             u_opt = solve_qp(self.G, ud, A, b)[0]
-        except Exception as e:
-            print(e)
+        except:
+            traceback.print_exc()
             u_opt = np.array([0., 0])
         return u_opt
 
