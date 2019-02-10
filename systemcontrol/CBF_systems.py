@@ -19,6 +19,7 @@ class CBFSystem(ControlSystem):
 
         if not G:
             self.G = np.identity(np.shape(self.g())[1])
+        self.default = lambda x: np.array([0., 0])
 
     # feedback controller using CBF
     def u(self):
@@ -49,11 +50,14 @@ class CBFSystem(ControlSystem):
 
         A = np.hstack((Cc, Ca))
         b = np.concatenate((bc, ba))
+        G = self.G
+        aT = 1/2 * ud @ (self.G + self.G.T)
         try:
-            u_opt = solve_qp(self.G, ud, A, b)[0]
+            u_opt = solve_qp(self.G, aT, A, b)[0]
         except:
             traceback.print_exc()
-            u_opt = np.array([0., 0])
+            # default controller for error handling
+            u_opt = self.default(self.x)
         return u_opt
 
 
@@ -61,15 +65,14 @@ class FeasibleCBF(CBFSystem):
     '''
     Feasible Control Barrier Formulation
     '''
-    def __init__(self, x, h, gamma, a):
+    def __init__(self, x, h=[], a=[]):
         CBFSystem.__init__(self, x)
-        self.h = h  # barrier function
-        self.gamma = gamma  # evasive maneuver
-        self.a = a  # class K function
+        self.h = h  # list of barrier functions
+        self.a = a  # list of class K functions
         self.epsilon = 0.0  # higher epsilon promotes conservatism
 
     # numerical calculation of gradient of h
-    def gradh(self):
+    def gradh(self, h):
         x_cop = np.copy(self.x)
         n = len(self.x)
         grad = np.zeros((n,))
@@ -80,20 +83,22 @@ class FeasibleCBF(CBFSystem):
             for dx in [-step, step]:
                 dx_state = self.x[i] + dx
                 x_cop[i] = dx_state
-                dh.append(self.h(x_cop))
+                dh.append(h(x_cop))
             # median approximation
             grad[i] = np.diff(dh)/(2*step)
         return grad
 
     # control barrier function
     def CBF(self):
-        h_dot = self.gradh()
-
-        Lfh = h_dot @ self.f()
-        Lgh = h_dot @ self.g()
-        alpha = self.a(self.h(self.x))
-        C = np.reshape(np.array(Lgh), (-1, 1))
-        b = np.array([-(alpha + Lfh)])
+        C = np.zeros((np.shape(self.g())[1], len(self.h)))
+        b = np.zeros((len(self.h),))
+        for i in range(len(self.h)):
+            h_dot = self.gradh(self.h[i])
+            Lfh = h_dot @ self.f()
+            Lgh = h_dot @ self.g()
+            alpha = self.a[i](self.h[i](self.x))
+            C[:, i] = np.array(Lgh)
+            b[i] = -(alpha + Lfh)
         return C, b + self.epsilon
 
 
@@ -101,8 +106,8 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
     '''
     Feasible Control Barrier Formulations for Coupled Systems
     '''
-    def __init__(self, x, h=None, ch=None, sys_list=[], gamma=None, a=None, ach=None):
-        FeasibleCBF.__init__(self, x, h, gamma, a)
+    def __init__(self, x, h=[], ch=[], sys_list=[], a=[], ach=[]):
+        FeasibleCBF.__init__(self, x, h, a)
         NetworkSystem.__init__(self, x, sys_list)
         self.ch = ch  # barrier between the coupled system
         self.ach = ach  # class K function for coupled barrier
@@ -120,7 +125,7 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
         return u_opt[0:np.shape(self.g())[1]]
 
     # numerical calculation of gradient of barrier between 2 systems
-    def gradch(self, j):
+    def gradch(self, ch,  j):
         xi = np.copy(self.x)
         xj = np.copy(self.sys_list[j].x)
         n = len(xi)
@@ -136,7 +141,7 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
                 else:
                     dxstate = self.sys_list[j].x[i-n] + dx
                     xj[i-n] = dxstate
-                dh.append(self.ch(xi, xj))
+                dh.append(ch(xi, xj))
             # median approximation
             grad[i] = np.diff(dh)/(2*step)
         return grad
@@ -174,23 +179,11 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
 
         return C, b + self.epsilon
 
-    # control barrier function for barrier
-    def hCBF(self):
-        h_dot = self.gradh()
-
-        Lfh = h_dot @ self.f()
-        Lgh = h_dot @ self.g()
-        alpha = self.a(self.h(self.x))
-
-        C = np.array(Lgh)
-        b = np.array([-(alpha + Lfh)])
-        return C, b + self.epsilon
-
     def CBF(self):
         l = np.shape(self.g())[1]
         n = l*(len(self.sys_list)+1)
         if self.h:
-            Ch, bh = self.hCBF()
+            Ch, bh = FeasibleCBF.CBF()
             temp = np.zeros((n,))
             temp[0:l] = Ch
             Ch = np.reshape(temp, (n, 1))
@@ -210,23 +203,24 @@ class FeasibleInfimum(FeasibleCBF, SimulationSystem):
     '''
     Control Barrier Function that estimates infimum
     '''
-    def __init__(self, x, p, gamma, a, Tlim=3):
-        FeasibleCBF.__init__(self, x, self.h, gamma, a)
+    def __init__(self, x, gamma, p=[], a=[], Tlim=[]):
+        FeasibleCBF.__init__(self, x, [self.give_h(p, T) for elem, T in zip(p, Tlim)], a)
         SimulationSystem.__init__(self, x, gamma)
 
-        self.p = p  # safety function
-        self.Tlim = Tlim  # Time horizon of integration
+        self.p = p  # list of safety function
+        self.Tlim = Tlim  # list of Time horizons of integration
 
-    def h(self, x):
-        self.reset(x)
-        infimum = None
-        while self.simt < self.Tlim:
-            val = self.p(self.simx)
-            if not infimum or val < infimum:
-                infimum = val
-            self.gamma_step()
-        return infimum
-
+    def give_h(self, p, Tlim):
+        def h(x):
+            self.reset(x)
+            infimum = None
+            while self.simt < Tlim:
+                val = p(self.simx)
+                if not infimum or val < infimum:
+                    infimum = val
+                self.gamma_step()
+            return infimum
+        return h
 
 
 class CoupledInfimum(CoupleCBF, FeasibleInfimum):
@@ -239,62 +233,6 @@ class CoupledInfimum(CoupleCBF, FeasibleInfimum):
         self.ph = ph
         self.pch = pch
         self.Tlim = Tlim
-
-
-    # numerical calculation of gradient of barrier between 2 systems
-    def gradch(self, j):
-        xi = np.copy(self.x)
-        xj = np.copy(self.sys_list[j].x)
-        n = len(xi)
-        grad = np.zeros((2*n,))
-        step = .001
-
-        for i in range(2*n):
-            dh = []
-            for dx in [-step, step]:
-                if i < n:
-                    dxstate = self.x[i] + dx
-                    xi[i] = dxstate
-                else:
-                    dxstate = self.sys_list[j].x[i-n] + dx
-                    xj[i-n] = dxstate
-                dh.append(self.ch(xi, xj, self.sys_list[j]))
-            # median approximation
-            grad[i] = np.diff(dh)/(2*step)
-        return grad
-
-    # Control barrier function for coupled system
-    def chCBF(self):
-        length = len(self.sys_list)
-        if length == 0 or not self.ch:
-            return None
-
-        C = np.zeros((len(self.g()[1])*(length + 1), length))
-        b = np.zeros((length,))
-
-        for j in range(length):
-            sysj = self.sys_list[j]
-
-            gradient = self.gradch(j)
-            h_dot = gradient[0:len(self.x)]
-            h_dot_j = gradient[len(self.x):]
-
-            Lfh = h_dot @ self.f()
-            Lgh = h_dot @ self.g()
-
-            Lfhj = h_dot_j @ sysj.f()
-            Lghj = h_dot_j @ sysj.g()
-
-            alpha = self.ach((self.ch(self.x, sysj.x, sysj)))
-
-            l = len(self.g()[1])
-
-            C[0:l, j] = Lgh
-            C[l*(j+1):l*(j+2), j] = Lghj
-
-            b[j] = -(alpha + Lfh + Lfhj)
-
-        return C, b + self.epsilon
 
     def ch(self, k, l, sys):
         if not self.pch:
@@ -310,17 +248,3 @@ class CoupledInfimum(CoupleCBF, FeasibleInfimum):
             self.gamma_step()
             sys.gamma_step()
         return infimum
-
-    def h(self, x):
-        if not self.ph:
-            return 1
-
-        self.reset(x)
-        infimum = None
-        while self.simt < self.Tlim:
-            val = self.p(self.simx)
-            if not infimum or val < infimum:
-                infimum = val
-            self.gamma_step()
-        return infimum
-
