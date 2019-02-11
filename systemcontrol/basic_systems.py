@@ -222,5 +222,5 @@ class FeedbackController(ControlSystem):
     # return controller for given state
     def feedback(self, x):
         self.x = x
-        self.t += dt
+        self.t += self.dt
         return self.u()

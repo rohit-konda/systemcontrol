@@ -106,7 +106,7 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
     '''
     Feasible Control Barrier Formulations for Coupled Systems
     '''
-    def __init__(self, x, h=[], ch=[], sys_list=[], a=[], ach=[]):
+    def __init__(self, x, h=[], ch=None, sys_list=[], a=[], ach=None):
         FeasibleCBF.__init__(self, x, h, a)
         NetworkSystem.__init__(self, x, sys_list)
         self.ch = ch  # barrier between the coupled system
@@ -148,10 +148,6 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
 
     # Control barrier function for coupled system
     def chCBF(self):
-        length = len(self.sys_list)
-        if length == 0 or not self.ch:
-            return None
-
         C = np.zeros((len(self.g()[1])*(length + 1), length))
         b = np.zeros((length,))
 
