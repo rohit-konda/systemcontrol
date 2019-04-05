@@ -11,14 +11,12 @@ import matplotlib.patches as patches
 from time import time
 from datetime import datetime
 from systemcontrol.basic_systems import *
-from systemcontrol.helper_func import *
 import json
 
 
 class Animate():
-    '''
-    Parent Class for animating systems
-    '''
+    """ Parent Class for animating systems """
+
     def __init__(self, sys_list, size=(18, 9), xlim=[-10, 10], ylim=[-10, 10],
                  showfig=True, saveData=False, inter=False):
         self.sys_list = sys_list
@@ -42,8 +40,8 @@ class Animate():
         if inter:
             self.set_interval()
 
-    # initialization function, sets objects for axes
     def init_axes(self):
+        """ initialization function, sets objects for axes """
         for sys in self.sys_list:
             sys.draw_setup(self.axes)
             self.drawings += sys.drawings
@@ -58,8 +56,8 @@ class Animate():
 
         return (self.time_text,) + tuple(self.drawings)
 
-    # update function
     def update_frame(self, i):
+        """ plot update function """
         for sys in self.sys_list:
             sys.step()
             sys.draw_update(self.axes)
@@ -72,8 +70,8 @@ class Animate():
 
         return (self.time_text,) + tuple(self.drawings)
 
-    # setup figure handles
     def setup(self):
+        """ setup figure handles """
         self.axes = self.fig.add_subplot(111, aspect='equal', autoscale_on=False,
                                          xlim=self.xlim, ylim=self.ylim)
         self.fig.set_size_inches(self.size)
@@ -84,8 +82,8 @@ class Animate():
 
         self.init_axes()
 
-    # set up interval for approximately real time simulation
     def set_interval(self):
+        """ set up interval for approximately real time simulation """
 
         t0 = time()
         self.update_frame(0)
@@ -94,8 +92,8 @@ class Animate():
         if a_time > 0:
             self.interval = a_time
 
-    # animate function, if name specified, saves file
     def animate(self, name=None, frames=500):
+        """ animate function, if name specified, saves file """
 
         # run animation
         anim_handle = animation.FuncAnimation(self.fig, self.update_frame, frames=frames,
@@ -115,9 +113,8 @@ class Animate():
 
 
 class MultiAnimate(Animate):
-    '''
-    For animating multiple figures
-    '''
+    """ For animating multiple figures """
+
     def __init__(self, sys_list, plotarr=[1, 1], limits=[[-10, 10, -10, 10]],
                  size=(18, 9), showfig=True, saveData=False, inter=False):
 
@@ -126,8 +123,8 @@ class MultiAnimate(Animate):
         Animate.__init__(self, sys_list, size=(18, 9), showfig=True,
                          saveData=False, inter=False)
 
-    # initialization function, sets objects for axes
     def init_axes(self):
+        """ initialization function, sets objects for axes """
         for sys in self.sys_list:
             sys.draw_setup(self.axes)
             for i in range(len(self.drawings)):
@@ -146,8 +143,8 @@ class MultiAnimate(Animate):
 
         return tuple(self.time_text) + tuple([art for draw in self.drawings for art in draw])
 
-    # update function
     def update_frame(self, i):
+        """ plot update function """
         for sys in self.sys_list:
             sys.step()
             sys.draw_update(self.axes)
@@ -161,8 +158,8 @@ class MultiAnimate(Animate):
 
         return tuple(self.time_text) + tuple([art for draw in self.drawings for art in draw])
 
-    # setup figure handles
     def setup(self):
+        """ setup figure handles """
         # override Animate settings
         M = self.plotarr[0]
         N = self.plotarr[1]
