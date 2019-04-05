@@ -1,19 +1,17 @@
 #!/usr/bin/env python
-'''
-control systems with general CBF implementations
-'''
+"""
+system formulations with control barrier architechtures
+"""
 import numpy as np
 from math import ceil, log
 from systemcontrol.basic_systems import *
-from systemcontrol.helper_func import *
 from quadprog import solve_qp
 import traceback
 
 
 class CBFSystem(ControlSystem):
-    '''
-    System with Control Barrier Formulation
-    '''
+    """ System with Control Barrier Formulation """
+
     def __init__(self, x, G=None):
         ControlSystem.__init__(self, x)
 
@@ -21,29 +19,29 @@ class CBFSystem(ControlSystem):
             self.G = np.identity(np.shape(self.g())[1])
         self.default = lambda x: np.array([0., 0])
 
-    # feedback controller using CBF
     def u(self):
+        """ feedback controller using CBF """
         ud = self.nominal()  # u nominal
         u_opt = self.qp_u(ud)  # safe controller
         return u_opt
 
-    # nominal controller
     def nominal(self):
+        """ nominal controller """
         raise NotImplementedError
 
-    # actuation constraints
     def input_cons(self):
+        """ actuation constraints """
         l = np.shape(self.g())[1]
         Ca = np.zeros((l, 1), dtype='float32')
         ba = np.array([-1.])
         return (Ca, ba)
 
-    # control barrier: returns safety constraints
     def CBF(self):
+        """ control barrier: returns safety constraints """
         raise NotImplementedError
 
-    # QP solver
     def qp_u(self, ud):
+        """ QP solver """
         Cc, bc = self.CBF()
         Ca, ba = self.input_cons()
         # parameters for solve_qp
@@ -62,17 +60,16 @@ class CBFSystem(ControlSystem):
 
 
 class FeasibleCBF(CBFSystem):
-    '''
-    Feasible Control Barrier Formulation
-    '''
+    """ Feasible Control Barrier Formulation """
+
     def __init__(self, x, h=[], a=[]):
         CBFSystem.__init__(self, x)
         self.h = h  # list of barrier functions
         self.a = a  # list of class K functions
         self.epsilon = 0.0  # higher epsilon promotes conservatism
 
-    # numerical calculation of gradient of h
     def gradh(self, h):
+        """ numerical calculation of gradient of h """
         x_cop = np.copy(self.x)
         n = len(self.x)
         grad = np.zeros((n,))
@@ -88,8 +85,8 @@ class FeasibleCBF(CBFSystem):
             grad[i] = np.diff(dh)/(2*step)
         return grad
 
-    # control barrier function
     def CBF(self):
+        """ control barrier function """
         C = np.zeros((np.shape(self.g())[1], len(self.h)))
         b = np.zeros((len(self.h),))
         for i in range(len(self.h)):
@@ -103,17 +100,16 @@ class FeasibleCBF(CBFSystem):
 
 
 class CoupleCBF(FeasibleCBF, NetworkSystem):
-    '''
-    Feasible Control Barrier Formulations for Coupled Systems
-    '''
+    """ Feasible Control Barrier Formulations for Coupled Systems """
+
     def __init__(self, x, h=[], ch=None, sys_list=[], a=[], ach=None):
         FeasibleCBF.__init__(self, x, h, a)
         NetworkSystem.__init__(self, x, sys_list)
         self.ch = ch  # barrier between the coupled system
         self.ach = ach  # class K function for coupled barrier
 
-    # feedback controller using coupled CBF
     def u(self):
+        """ feedback controller using coupled CBF """
         nom = self.nominal()
 
         if self.sys_list:
@@ -124,8 +120,8 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
         u_opt = self.qp_u(ud)
         return u_opt[0:np.shape(self.g())[1]]
 
-    # numerical calculation of gradient of barrier between 2 systems
     def gradch(self, ch,  j):
+        """ numerical calculation of gradient of barrier between 2 systems """
         xi = np.copy(self.x)
         xj = np.copy(self.sys_list[j].x)
         n = len(xi)
@@ -146,8 +142,8 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
             grad[i] = np.diff(dh)/(2*step)
         return grad
 
-    # Control barrier function for coupled system
     def chCBF(self):
+        """ Control barrier function for coupled system """
         C = np.zeros((len(self.g()[1])*(length + 1), length))
         b = np.zeros((length,))
 
@@ -176,6 +172,7 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
         return C, b + self.epsilon
 
     def CBF(self):
+        """ Control barrier function for single system """
         l = np.shape(self.g())[1]
         n = l*(len(self.sys_list)+1)
         if self.h:
@@ -196,9 +193,8 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
 
 
 class FeasibleInfimum(FeasibleCBF, SimulationSystem):
-    '''
-    Control Barrier Function that estimates infimum
-    '''
+    """ Control Barrier Function that estimates infimum """
+
     def __init__(self, x, gamma, p=[], a=[], Tlim=[]):
         FeasibleCBF.__init__(self, x, [self.give_h(p, T) for elem, T in zip(p, Tlim)], a)
         SimulationSystem.__init__(self, x, gamma)
@@ -207,6 +203,7 @@ class FeasibleInfimum(FeasibleCBF, SimulationSystem):
         self.Tlim = Tlim  # list of Time horizons of integration
 
     def give_h(self, p, Tlim):
+        """ feasible calculation of barrier value from simulated system """
         def h(x):
             self.reset(x)
             infimum = None
@@ -217,30 +214,3 @@ class FeasibleInfimum(FeasibleCBF, SimulationSystem):
                 self.gamma_step()
             return infimum
         return h
-
-
-class CoupledInfimum(CoupleCBF, FeasibleInfimum):
-    '''
-    Control Barrier Function that estimates infimum for coupled systems
-    '''
-    def __init__(self, x, ph=None, pch=None, sys_list=[], gamma=None, a=None, ach=None, Tlim=10):
-        CoupleCBF.__init__(self, x, h=self.h, ch=self.ch, sys_list=[], gamma=gamma, a=a, ach=ach)
-        SimulationSystem.__init__(self, x, gamma)
-        self.ph = ph
-        self.pch = pch
-        self.Tlim = Tlim
-
-    def ch(self, k, l, sys):
-        if not self.pch:
-            return 1
-
-        self.reset(k)
-        sys.reset(l)
-        infimum = None
-        while self.simt < self.Tlim:
-            val = self.pch(self.simx, sys.simx)
-            if not infimum or val < infimum:
-                infimum = val
-            self.gamma_step()
-            sys.gamma_step()
-        return infimum

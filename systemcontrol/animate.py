@@ -1,8 +1,9 @@
-'''
+#!/usr/bin/env python
+"""
 Class defintions for animating control affine systems
 
 from jakevdp.github.io animation tutorial and nickcharlton.net patch tutorial
-'''
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
