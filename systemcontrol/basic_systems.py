@@ -159,7 +159,7 @@ class NetworkSystem(ControlSystem):
         self.sys_list = sys_list
 
 
-class DrawSystem(Actor, ControlSystem):
+class DrawSystem(ControlSystem):
     """ Parent class for drawing simulations """
 
     def __init__(self, x):
