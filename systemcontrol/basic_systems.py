@@ -6,8 +6,8 @@ Class defintions for creating basic feedback control affine systems
 import numpy as np
 
 
-class ControlSystem:
-    """ general control affine system """
+class System:
+    """general formulation for system"""
 
     def __init__(self, x, dt=.1, params=None,  t=0):
         self.x = x  # state
@@ -15,21 +15,13 @@ class ControlSystem:
         self.dt = dt  # time step
         self.params = params  # define parameters
 
-    # x dot = f(x) + g(x)*u
+    # x dot = f(x)
     def flow(self):
-        """ dynamics of control system """
-        return self.f() + self.g() @ self.u()
+        """ dynamics of system """
+        return self.f()
 
     def f(self):
         """ drift term """
-        raise NotImplementedError
-
-    def g(self):
-        """ control affine term"""
-        raise NotImplementedError
-
-    def u(self):
-        """ input """
         raise NotImplementedError
 
     def step(self):
@@ -58,6 +50,26 @@ class ControlSystem:
             self.step()
         self.x = x_i
         return traj
+
+
+class ControlSystem(System):
+    """ general control affine system """
+
+    def __init__(self, x, dt=.1, params=None,  t=0):
+        System.__init__(self, x, dt, params,  t)
+
+    # x dot = f(x) + g(x)*u
+    def flow(self):
+        """ dynamics of control system """
+        return self.f() + self.g() @ self.u()
+
+    def g(self):
+        """ control affine term"""
+        raise NotImplementedError
+
+    def u(self):
+        """ input """
+        raise NotImplementedError
 
 
 class SingleIntegrator(ControlSystem):
@@ -159,11 +171,11 @@ class NetworkSystem(ControlSystem):
         self.sys_list = sys_list
 
 
-class DrawSystem(ControlSystem):
+class DrawSystem(System):
     """ Parent class for drawing simulations """
 
     def __init__(self, x):
-        ControlSystem.__init__(self, x)
+        System.__init__(self, x)
         self.drawings = []
 
     def draw_setup(self, axes=None):

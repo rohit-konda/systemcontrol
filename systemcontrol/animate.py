@@ -17,9 +17,10 @@ import json
 class Animate():
     """ Parent Class for animating systems """
 
-    def __init__(self, sys_list, size=(18, 9), xlim=[-10, 10], ylim=[-10, 10],
+    def __init__(self, sys_list, ob_list=[], size=(18, 9), xlim=[-10, 10], ylim=[-10, 10],
                  showfig=True, saveData=False, inter=False):
-        self.sys_list = sys_list
+        self.sys_list = sys_list  # list of system objects
+        self.ob_list = ob_list  # list of objects that are static
         self.fig = plt.figure()  # figure handle
         self.size = size  # size of figure
         self.axes = None  # axes handle
@@ -45,6 +46,9 @@ class Animate():
         for sys in self.sys_list:
             sys.draw_setup(self.axes)
             self.drawings += sys.drawings
+
+        self.drawings += self.ob_list
+
         for artist in self.drawings:
             self.axes.add_artist(artist)
         self.axes.images = []  # flush duplicate images

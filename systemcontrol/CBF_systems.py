@@ -17,7 +17,7 @@ class CBFSystem(ControlSystem):
 
         if not G:
             self.G = np.identity(np.shape(self.g())[1])
-        self.default = lambda x: np.array([0., 0])
+        self.default = lambda x: np.zeros((np.shape(self.g())[1],))
 
     def u(self):
         """ feedback controller using CBF """
@@ -87,6 +87,11 @@ class FeasibleCBF(CBFSystem):
 
     def CBF(self):
         """ control barrier function """
+        if self.h == []:
+            C = np.zeros((np.shape(self.g())[1], 1))
+            b = np.zeros((1,))
+            return C, b
+
         C = np.zeros((np.shape(self.g())[1], len(self.h)))
         b = np.zeros((len(self.h),))
         for i in range(len(self.h)):
