@@ -27,22 +27,22 @@ class SmartCar(FeasibleCBF, SingleUnicycle, DrawSystem):
 
     def nominal(self):
         """ controller to go in a circle"""
-        K = .5
+        K = 1
         p = 3
         norm = np.maximum(self.x[0]**2 + self.x[1]**2, 2*p)
         td = np.arctan2(self.x[1], self.x[0]) + np.pi/2 + np.pi/2/p*(norm - p)
 
-        u = np.array([.1, K*np.sin(td - self.x[2])])
+        u = np.array([.5, K*np.sin(td - self.x[2])])
         return u
 
     def seth(self):
         listofh = []
-        for obs in self.obstacles:
-            listofh.append(lambda x: (obs[0] - self.x[0])**2 - (obs[1] - self.x[1])**2 - self.r**2)
+        #for obs in self.obstacles:
+        #    listofh.append(lambda x: (obs[0] - self.x[0])**2 - (obs[1] - self.x[1])**2 - self.r**2)
         return listofh
 
     def seta(self):
-        return [lambda x: x for obs in obstacles]
+        return [] # [lambda x: x for obs in obstacles]
 
     def uni_draw(self):
         """ function to draw a triangle representing the unicycle model"""

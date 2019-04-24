@@ -11,7 +11,7 @@ class System:
 
     def __init__(self, x, dt=.1, params=None,  t=0):
         self.x = x  # state
-        self.t = t  # initial time
+        self.t = t  # time
         self.dt = dt  # time step
         self.params = params  # define parameters
 
@@ -61,7 +61,7 @@ class ControlSystem(System):
     # x dot = f(x) + g(x)*u
     def flow(self):
         """ dynamics of control system """
-        return self.f() + self.g() @ self.u()
+        return self.f() + np.dot(self.g(), self.u())
 
     def g(self):
         """ control affine term"""
@@ -163,11 +163,11 @@ class DoubleUnicycle(ControlSystem):
         return np.array([0, 0])
 
 
-class NetworkSystem(ControlSystem):
+class NetworkSystem(System):
     """ Parent class for systems with interactions """
 
     def __init__(self, x, sys_list):
-        ControlSystem.__init__(self, x)
+        System.__init__(self, x)
         self.sys_list = sys_list
 
 
@@ -201,7 +201,7 @@ class SimulationSystem(ControlSystem):
         """ xdot for a given state """
         tempx = self.x.copy()
         self.x = x
-        xdot = self.f() + self.g() @ self.gamma(x)
+        xdot = self.f() + np.dot(self.g(), self.gamma(x))
         self.x = tempx
         return xdot
 

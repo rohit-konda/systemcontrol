@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
+import matplotlib.transforms as transforms
 from time import time
 from datetime import datetime
 from systemcontrol.basic_systems import *
@@ -17,8 +18,8 @@ import json
 class Animate():
     """ Parent Class for animating systems """
 
-    def __init__(self, sys_list, ob_list=[], size=(18, 9), xlim=[-10, 10], ylim=[-10, 10],
-                 showfig=True, saveData=False, inter=False):
+    def __init__(self, sys_list, ob_list=[], size=(10, 9), xlim=[-10, 10], ylim=[-10, 10],
+                 showfig=True, saveData=False, inter=False, tight=True):
         self.sys_list = sys_list  # list of system objects
         self.ob_list = ob_list  # list of objects that are static
         self.fig = plt.figure()  # figure handle
@@ -33,21 +34,23 @@ class Animate():
         self.grid_on = False  # turn on grid on plot
         self.saveData = saveData  # option of saving traces of animation
         self.showfig = showfig  # show Figure or not
-        self.time = 0
-        self.dt = self.sys_list[0].dt
+        self.time = 0  # start at t = 0
+        self.tight = tight  # fill figure with axes
+        self.dt = self.sys_list[0].dt  # set time step
 
         # setup axes
         self.setup()
-        if inter:
+        if self.tight:
+            self.fig.tight_layout()
+        if inter:  # make approximately real time
             self.set_interval()
 
     def init_axes(self):
         """ initialization function, sets objects for axes """
+        self.drawings += self.ob_list
         for sys in self.sys_list:
             sys.draw_setup(self.axes)
             self.drawings += sys.drawings
-
-        self.drawings += self.ob_list
 
         for artist in self.drawings:
             self.axes.add_artist(artist)
@@ -82,7 +85,8 @@ class Animate():
 
         if self.grid_on:
             self.axes.grid()
-        self.time_text = self.axes.text(0.02, 0.95, '', transform=self.axes.transAxes)
+        self.time_text = self.axes.text(0.02, 0.95,
+                                        '', transform=self.axes.transAxes)
 
         self.init_axes()
 
@@ -119,16 +123,18 @@ class Animate():
 class MultiAnimate(Animate):
     """ For animating multiple figures """
 
-    def __init__(self, sys_list, plotarr=[1, 1], limits=[[-10, 10, -10, 10]],
-                 size=(18, 9), showfig=True, saveData=False, inter=False):
+    def __init__(self, sys_list, ob_list=[], plotarr=[1, 1], limits=[[-10, 10, -10, 10]],
+                 size=(10, 9), showfig=True, saveData=False, inter=False, tight=True):
 
         self.plotarr = plotarr  # array of plots: M x N subplots
         self.limits = limits  # limits for each plot, [x_lower, x_upper, y_lower, y_upper]
-        Animate.__init__(self, sys_list, size=(18, 9), showfig=True,
-                         saveData=False, inter=False)
+        Animate.__init__(self, sys_list, ob_list, size=size, showfig=showfig,
+                         saveData=saveData, inter=inter, tight=tight)
 
     def init_axes(self):
         """ initialization function, sets objects for axes """
+        for i in range(len(self.drawings)):
+            self.drawings[i] += self.ob_list[i]
         for sys in self.sys_list:
             sys.draw_setup(self.axes)
             for i in range(len(self.drawings)):

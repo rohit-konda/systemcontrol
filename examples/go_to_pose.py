@@ -44,9 +44,10 @@ class Robot(DoubleIntegrator, DrawSystem):
         x = self.x[0]  # x position
         y = self.x[1]  # y position
 
-        body = patches.Circle((x, y), 1, fill=False)
-        eye1 = patches.Circle((x, y), .1, fill=False)
-        eye2 = patches.Circle((x, y), .1, fill=False)
+        # draw smiley
+        body = patches.Circle((x, y), 1, fill=False, zorder=10)
+        eye1 = patches.Circle((x, y), .1, fill=False, zorder=10)
+        eye2 = patches.Circle((x, y), .1, fill=False, zorder=10)
         smile = patches.Arc((x, y), .8, .8, theta1=220, theta2=320)
 
         self.drawings = [body, eye1, eye2, smile]
@@ -61,6 +62,7 @@ class Robot(DoubleIntegrator, DrawSystem):
         offy = .3
         offx = .3
 
+        # move smiley to right position
         self.drawings[0].center = (x, y)
         self.drawings[1].center = (x + offx, y + offy)
         self.drawings[2].center = (x - offx, y + offy)
@@ -72,17 +74,19 @@ if __name__ == '__main__':
     goal = [0, 0]  # go to the origin
 
     happy = Robot(random_pos, goal)  # initialize Robot
-    sys_list = [happy, ]  # set up list of systems that will be plotted
+    sys_list = [happy]
+    ob_list = [patches.Circle([0, 0], 1.1, fill=False, lw=2, color='navy')]
 
     #  Note most of these parameters are set by default
-    animator = Animate(sys_list,
-                       ob_list=[],
-                       size=(18, 9),  # size of figure
+    animator = Animate(sys_list,  # set up list of systems that will be plotted
+                       ob_list=ob_list,  # list of objects that are static
+                       size=(10, 9),  # size of figure
                        xlim=[-10, 10],  # plotting limits of x axis
                        ylim=[-10, 10],  # plotting limits of x axis
                        showfig=True,  # set True to display animation
                        saveData=False,  # set True to save data as json
-                       inter=False  # set True to approximate real time animation
+                       inter=False,  # set True to approximate real time animation
+                       tight=True  # axes padding decreases
                        )  # intialize simulation environment
 
     animator.animate()  # run animation

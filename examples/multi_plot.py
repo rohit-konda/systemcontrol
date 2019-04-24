@@ -1,88 +1,93 @@
 #!/usr/bin/env python
 """
-Tutorial example for simulating a virtual environment
+Tutorial example for plotting multiple figures
 
-Environment includes a double integrator robot that is initialized randomly
-and uses a proportional controller to go to desired goal positions
+Environment includes a double integrator car in one dimension
+with acceleration and position being plotted.
 """
 
 import numpy as np
-from systemcontrol.basic_systems import DoubleIntegrator, DrawSystem
-from systemcontrol.animate import Animate
+from systemcontrol.basic_systems import ControlSystem, DrawSystem
+from systemcontrol.animate import MultiAnimate
 from matplotlib import patches, transforms
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
-class Robot(DoubleIntegrator, DrawSystem):
-    """ simulated robot """
+class FACTSCar(ControlSystem, DrawSystem):
+    """ The FACTS Car! """
 
-    def __init__(self, x, goal):
-        DoubleIntegrator.__init__(self, x)  # extends the Double Integrator Class in basic_systems
+    def __init__(self, x):
         DrawSystem.__init__(self, x)  # used for drawing in the animation
+        self.record = None  # record distance value
 
-        self.goal = goal  # desired x, y position
+    def f(self):
+        """x_dot = v """
+        return np.array([self.x[1], 0])
+
+    def g(self):
+        """ v_dot = a """
+        return np.array([0, 1.])
 
     def u(self):
-        """ proportional controller """
-
-        xerr = (goal[0] - self.x[0])  # error for x position
-        vxerr = -self.x[2]  # error for x velocity
-        yerr = (goal[1] - self.x[1])  # error for y position
-        vyerr = -self.x[3]  # error for y velocity
-
-        K = .1  # gain for proportional controller for position
-
-        u = np.array([K*xerr + vxerr, K*yerr + vyerr])  # controller
+        """ apply brakes if near wall"""
+        if self.x[0] < -5:
+            u = 0
+        else:
+            u = .1*(-.25 - self.x[0]) - self.x[1]  # PD controller
 
         return u
 
     def draw_setup(self, axes):
         """
-        in this method from DrawSystem, initialize all matplotlib objects for plotting
-        to get info on figure axes, check axes parameter
-        set self.drawings to a list that is plotted at each time point
+        draw car
+        and plot lines
         """
-        x = self.x[0]  # x position
-        y = self.x[1]  # y position
+        self.drawings = [[], []]
+        img = plt.imread('../files/Logo.png')  # read image to numpy array
+        scale = .0025  # scale image down
 
-        body = patches.Circle((x, y), 1, fill=False)
-        eye1 = patches.Circle((x, y), .1, fill=False)
-        eye2 = patches.Circle((x, y), .1, fill=False)
-        smile = patches.Arc((x, y), .8, .8, theta1=220, theta2=320)
-
-        self.drawings = [body, eye1, eye2, smile]
+        # set image size, this method is most stable from experience
+        extent = [-img.shape[1]*scale, img.shape[1]*scale, -img.shape[0]*scale, img.shape[0]*scale]
+        # set drawings to include image
+        self.drawings[1] = [axes[1].imshow(img, extent=extent, animated=True)]
+        # plot line for distance
+        self.drawings[0] = [Line2D([], [], color='black')]
+        # set title of first plot
+        axes[0].set_title('Distance to Wall')
 
     def draw_update(self, axes):
         """
-        in this method from DrawSystem, change characteristics of drawing objects
-        these objects will be in self.drawings
+        update car and lines
         """
         x = self.x[0]  # x position
-        y = self.x[1]  # y position
-        offy = .3
-        offx = .3
 
-        self.drawings[0].center = (x, y)
-        self.drawings[1].center = (x + offx, y + offy)
-        self.drawings[2].center = (x - offx, y + offy)
-        self.drawings[3].center = (x, y)
+        if self.record is None:
+            self.record = np.array([[self.t, -x]]).T
+        else:  # append current distance to self.record array
+            self.record = np.hstack((self.record, np.array([[self.t, -x]]).T))
+        # set data for plotting line
+        self.drawings[0][0].set_data(self.record)
+
+        # set transform for image position
+        tr = transforms.Affine2D().translate(x-3, 1)
+        # don't forget to normalize against axes data
+        self.drawings[1][0].set_transform(tr + axes[1].transData)
 
 
 if __name__ == '__main__':
 
-    random_pos = 5*np.random.rand(4)  # random position and random velocity
-    goal = [0, 0]  # go to the origin
+    start = np.array([-20., 1])  # start at -20 and 1 velocity
 
-    happy = Robot(random_pos, goal)  # initialize Robot
-    sys_list = [happy, Robot(5*np.random.rand(4), goal)]  # set up list of systems that will be plotted
-
-    #  Note most of these parameters are set by default
-    animator = Animate(sys_list,
-                       size=(18, 9),  # size of figure
-                       xlim=[-10, 10],  # plotting limits of x axis
-                       ylim=[-10, 10],  # plotting limits of x axis
-                       showfig=True,  # set True to display animation
-                       saveData=False,  # set True to save data as json
-                       inter=False  # set True to approximate real time animation
-                       )  # intialize simulation environment
+    FACTS = FACTSCar(start)  # initialize FACTS Car
+    sys_list = [FACTS]  # set up list of systems that will be plotted
+    # plot a road and a wall
+    obs_list = [[], [patches.Rectangle((-23.5, -1.5), 25.5, 1.5, zorder=1, color='gray'),
+                     patches.Rectangle((0, -1.5), 2, 7, color='black')]]
+    # Used for Multiple Plots
+    animator = MultiAnimate(sys_list,
+                            obs_list,
+                            plotarr=[2, 1],  # 2 X 1 plots
+                            limits=[[0, 75, 0, 30], [-23, 2, -1, 4]])  # axis limits for each plot
 
     animator.animate()  # run  animation
