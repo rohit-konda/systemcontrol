@@ -8,16 +8,16 @@ and uses a proportional controller to go to desired goal positions
 
 import numpy as np
 from systemcontrol.basic_systems import DoubleIntegrator
-from systemcontrol.animate import Animate, DrawSystem
+from systemcontrol.animate import Animate, Actor
 from matplotlib import patches
 
 
-class Robot(DoubleIntegrator, DrawSystem):
+class Robot(DoubleIntegrator, Actor):
     """ simulated robot """
 
     def __init__(self, x, goal):
         DoubleIntegrator.__init__(self, x)  # extends the Double Integrator Class in basic_systems
-        DrawSystem.__init__(self)  # used for drawing in the animation
+        Actor.__init__(self)  # used for drawing in the animation
 
         self.goal = goal  # desired x, y position
 
@@ -37,7 +37,7 @@ class Robot(DoubleIntegrator, DrawSystem):
 
     def draw_setup(self, axes):
         """
-        in this method from DrawSystem, initialize all matplotlib objects for plotting
+        in this method from Actor, initialize all matplotlib objects for plotting
         to get info on figure axes, check axes parameter
         set self.drawings to a list that is plotted at each time point
         """
@@ -54,7 +54,7 @@ class Robot(DoubleIntegrator, DrawSystem):
 
     def draw_update(self, axes):
         """
-        in this method from DrawSystem, change characteristics of drawing objects
+        in this method from Actor, change characteristics of drawing objects
         these objects will be in self.drawings
         """
         x = self.x[0]  # x position
@@ -86,7 +86,8 @@ if __name__ == '__main__':
                        showfig=True,  # set True to display animation
                        saveData=False,  # set True to save data as json
                        inter=False,  # set True to approximate real time animation
-                       tight=True  # axes padding decreases
+                       tight=True,  # axes padding decreases
+                       dt=.1  # time step
                        )  # intialize simulation environment
 
     animator.animate()  # run animation

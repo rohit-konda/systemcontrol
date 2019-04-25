@@ -9,13 +9,12 @@ and some obstacles that the car has to avoid
 import numpy as np
 from systemcontrol.basic_systems import SingleUnicycle
 from systemcontrol.CBF_systems import FeasibleCBF
-from systemcontrol.animate import Animate, DrawSystem
+from systemcontrol.animate import Animate, Actor
 import matplotlib.pyplot as plt
 from matplotlib import patches
-from matplotlib.lines import Line2D
 
 
-class SmartCar(FeasibleCBF, SingleUnicycle, DrawSystem):
+class SmartCar(FeasibleCBF, SingleUnicycle, Actor):
     """ car example that is programmed to avoid
     certain placed obstacled and go in a circle """
 
@@ -26,7 +25,7 @@ class SmartCar(FeasibleCBF, SingleUnicycle, DrawSystem):
 
         FeasibleCBF.__init__(self, x, self.seth(), self.seta())
         SingleUnicycle.__init__(self, x)
-        DrawSystem.__init__(self)
+        Actor.__init__(self)
 
     def u(self):
         """ controller to go in a circle"""

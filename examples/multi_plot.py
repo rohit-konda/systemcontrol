@@ -8,18 +8,18 @@ with acceleration and position being plotted.
 
 import numpy as np
 from systemcontrol.basic_systems import ControlSystem
-from systemcontrol.animate import MultiAnimate, DrawSystem
+from systemcontrol.animate import MultiAnimate, Actor
 from matplotlib import patches, transforms
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 
-class FACTSCar(ControlSystem, DrawSystem):
+class FACTSCar(ControlSystem, Actor):
     """ The FACTS Car! """
 
     def __init__(self, x):
         ControlSystem.__init__(self, x)
-        DrawSystem.__init__(self)  # used for drawing in the animation
+        Actor.__init__(self)  # used for drawing in the animation
         self.record = None  # record distance value
 
     def f(self):

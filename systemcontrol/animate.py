@@ -15,7 +15,7 @@ from systemcontrol.basic_systems import *
 import json
 
 
-class DrawSystem():
+class Actor():
     """ Parent class for drawing simulations"""
 
     def __init__(self):
@@ -38,7 +38,7 @@ class Animate():
     """ Parent Class for animating systems """
 
     def __init__(self, sys_list, ob_list=[], size=(10, 9), xlim=[-10, 10], ylim=[-10, 10],
-                 showfig=True, saveData=False, inter=False, tight=True):
+                 showfig=True, saveData=False, inter=False, tight=True, dt=.1):
         self.sys_list = sys_list  # list of system objects
         self.ob_list = ob_list  # list of objects that are static
         self.fig = plt.figure()  # figure handle
@@ -55,7 +55,7 @@ class Animate():
         self.showfig = showfig  # show Figure or not
         self.time = 0  # start at t = 0
         self.tight = tight  # fill figure with axes
-        self.dt = self.sys_list[0].dt  # set time step
+        self.dt = dt  # set time step
 
         # setup axes
         self.setup()

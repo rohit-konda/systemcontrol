@@ -2,24 +2,30 @@
 """
 Tutorial example for simulating a virtual environment
 
-Environment includes a double integrator robot that is initialized randomly
-and uses a proportional controller to go to desired goal positions
+Environment includes two pairs of fixed wing aircraft with unicycle dynamics
+whch are programmed to fly past each other while maintaining connectivity
+to their squadron, and avoiding collisions with all other aircraft
 """
 
 import numpy as np
 from systemcontrol.basic_systems import SingleUnicycle
-from systemcontrol.animate import Animate, DrawSystem
+from systemcontrol.animate import Animate, Actor
 from matplotlib import patches, transforms
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
-class FixedWing(DoubleIntegrator, DrawSystem):
+class FixedWing(SingleUnicycle, Actor):
     """ simulated robot """
 
-    def __init__(self, x, goal):
-        SingleUnicycle.__init__(self, x)  # extends the Double Integrator Class in basic_systems
-        DrawSystem.__init__(self)  # used for drawing in the animation
+    def __init__(self, x, color):
+        SingleUnicycle.__init__(self, x)  # unicycle model
+        Actor.__init__(self)  # used for drawing in the animation
 
-        self.goal = goal  # desired x, y position
+        self.color = color
+
+    def u(self):
+        return np.array([1, 0])
 
     def uni_draw(self):
         """ function to draw a triangle representing the unicycle model"""
@@ -37,41 +43,49 @@ class FixedWing(DoubleIntegrator, DrawSystem):
         return [p1, p2, p3]
 
     def draw_setup(self, axes):
-        self.drawings.append(plt.Polygon(xy=self.uni_draw(), color='red'))
+        self.drawings.append(plt.Polygon(xy=self.uni_draw(), color=self.color))
 
     def draw_update(self, axes):
         self.drawings[0].set_xy(self.uni_draw())
 
 
-class Connection(DrawSystem):
-    """ draws network between connection of aircrafts """
+class Connection(Actor):
+    """
+    draws network between connection of aircrafts
+    Also an example of a drawn object that
+    depends on multiple other objects
+    """
+
     def __init__(self, head, tail):
+        Actor.__init__(self)
         self.head = head  # head of edge to first aircraft
         self.tail = tail  # tail of edge to second aircraft
 
     def draw_setup(self, axes):
-        self.drawings.append()
+        # draw line
+        self.drawings.append(Line2D([], [], color='black'))
 
     def draw_update(self, axes):
-        self.drawings[0].set_xy(self.uni_draw())
-
-
-
+        # update line
+        line = np.vstack((self.head.x[0:2], self.tail.x[0:2])).T
+        self.drawings[0].set_data(line)
 
 
 if __name__ == '__main__':
 
-    random_pos = 5*np.random.rand(4)  # random position and random velocity
-    goal = [0, 0]  # go to the origin
+    # intialize aircraft
+    Red1 = FixedWing(np.array([-8, 2., 0]), 'red')
+    Red2 = FixedWing(np.array([-8, -2., 0]), 'red')
+    Blue1 = FixedWing(np.array([8, 2.5, np.pi]), 'blue')
+    Blue2 = FixedWing(np.array([8, -1.5, np.pi]), 'blue')
 
-    Red1 = FixedWing(random_pos, goal)  # initialize Robot
-    Red2 = FixedWing()
-    Blue1 = FixedWing()
-    Blue2 = FixedWing()
+    # initialize connections
+    Con1 = Connection(Red1, Red2)
+    Con2 = Connection(Blue1, Blue2)
 
-    sys_list = [happy, Robot(5*np.random.rand(4), goal)]  # set up list of systems that will be plotted
+    # set up list of systems that will be plotted
+    sys_list = [Con1, Con2, Red1, Red2, Blue1, Blue2]
 
-    #  Note most of these parameters are set by default
-    animator = Animate(sys_list, 
+    animator = Animate(sys_list)
 
     animator.animate()  # run  animation

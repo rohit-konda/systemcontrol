@@ -8,17 +8,17 @@ and uses a proportional controller to go to desired goal positions
 
 import numpy as np
 from systemcontrol.basic_systems import DoubleIntegrator
-from systemcontrol.animate import Animate, DrawSystem
+from systemcontrol.animate import Animate, Actor
 from matplotlib import patches, transforms
 import matplotlib.pyplot as plt
 
 
-class Helicopter(DoubleIntegrator, DrawSystem):
+class Helicopter(DoubleIntegrator, Actor):
     """ simulated helicopter """
 
     def __init__(self, x, goal):
         DoubleIntegrator.__init__(self, x)  # extends the Double Integrator Class in basic_systems
-        DrawSystem.__init__(self)  # used for drawing in the animation
+        Actor.__init__(self)  # used for drawing in the animation
 
         self.goal = goal  # desired x, y position
 
