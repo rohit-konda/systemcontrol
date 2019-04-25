@@ -15,6 +15,25 @@ from systemcontrol.basic_systems import *
 import json
 
 
+class DrawSystem():
+    """ Parent class for drawing simulations"""
+
+    def __init__(self):
+        self.drawings = []
+
+    def step(self):
+        """ iterate object """
+        pass
+
+    def draw_setup(self, axes=None):
+        """ initiliaze drawings """
+        raise NotImplementedError
+
+    def draw_update(self, axes=None):
+        """ update drawings """
+        raise NotImplementedError
+
+
 class Animate():
     """ Parent Class for animating systems """
 

@@ -22,7 +22,7 @@ class System:
 
     def f(self):
         """ drift term """
-        raise NotImplementedError
+        pass
 
     def step(self):
         """ euler approximation integration"""
@@ -65,11 +65,11 @@ class ControlSystem(System):
 
     def g(self):
         """ control affine term"""
-        raise NotImplementedError
+        pass
 
     def u(self):
         """ input """
-        raise NotImplementedError
+        pass
 
 
 class SingleIntegrator(ControlSystem):
@@ -169,22 +169,6 @@ class NetworkSystem(System):
     def __init__(self, x, sys_list):
         System.__init__(self, x)
         self.sys_list = sys_list
-
-
-class DrawSystem(System):
-    """ Parent class for drawing simulations """
-
-    def __init__(self, x):
-        System.__init__(self, x)
-        self.drawings = []
-
-    def draw_setup(self, axes=None):
-        """ initiliaze drawings """
-        raise NotImplementedError
-
-    def draw_update(self, axes=None):
-        """ update drawings """
-        raise NotImplementedError
 
 
 class SimulationSystem(ControlSystem):

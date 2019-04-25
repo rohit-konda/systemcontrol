@@ -7,9 +7,9 @@ and some obstacles that the car has to avoid
 """
 
 import numpy as np
-from systemcontrol.basic_systems import SingleUnicycle
-from systemcontrol.CBF_systems import FeasibleCBF
-from systemcontrol.animate import Animate, DrawSystem
+from systemcontrol.basic_systems import SingleUnicycle, DrawSystem
+from CBF_systems import FeasibleCBF
+from animate import Animate
 import matplotlib.pyplot as plt
 from matplotlib import patches
 from matplotlib.lines import Line2D
@@ -23,32 +23,34 @@ class SmartCar(FeasibleCBF, SingleUnicycle, DrawSystem):
         self.obstacles = obstacles
         self.r = r
         self.v = .5
+        self.record = None
 
         FeasibleCBF.__init__(self, x, self.seth(), self.seta())
         SingleUnicycle.__init__(self, x)
-        DrawSystem.__init__(self)
+        DrawSystem.__init__(self, x)
 
-    def u(self):
+    def nominal(self):
         """ controller to go in a circle"""
         K = 1
         p = 2.5
         norm = np.minimum((self.x[0]**2 + self.x[1]**2)**.5, 2*p)
         td = np.arctan2(self.x[1], self.x[0]) + norm/p*np.pi/2
-        u = np.array([self.v, 1])
+
+        u = np.array([self.v,0]) #np.array([self.v, K*np.sin(td - self.x[2])])
         return u
 
     def seth(self):
         listofh = []
-        w = 1
+        w = 1.
 
         for obs in self.obstacles:
-            listofh.append(lambda x:  (self.r - self.v/w)**2 -
-                                      (self.x[0] - obs[0] - self.v/w*np.sin(self.x[2]))**2 -
-                                      (self.x[1] - obs[1] + self.v/w*np.cos(self.x[2]))**2)
+            listofh.append(lambda x:  (self.x[0] - self.obstacles[0][0] - self.v/w*np.sin(self.x[2]))**2 +
+                               (self.x[1] - self.obstacles[0][1] + self.v/w*np.cos(self.x[2]))**2 -
+                               (self.v/w + self.r + .4)**2)
         return listofh
 
     def seta(self):
-        return [lambda x: x**3 for obs in obstacles]
+        return [lambda x: x for obs in obstacles]
 
     def uni_draw(self):
         """ function to draw a triangle representing the unicycle model"""
@@ -66,16 +68,26 @@ class SmartCar(FeasibleCBF, SingleUnicycle, DrawSystem):
         return [p1, p2, p3]
 
     def draw_setup(self, axes):
+        self.drawings.append(Line2D([], [], color='black'))
         self.drawings.append(plt.Polygon(xy=self.uni_draw(), color='red'))
 
+        self.drawings.append(patches.Circle((0, 0), self.v/1, fill=False))
+
     def draw_update(self, axes):
-        self.drawings[0].set_xy(self.uni_draw())
+        if self.record is None:
+            self.record = np.array([[self.x[0] , self.x[1]]]).T
+        else:  # append current distance to self.record array
+            self.record = np.hstack((self.record, np.array([[self.x[0], self.x[1]]]).T))
+        self.drawings[0].set_data(self.record)
+        self.drawings[1].set_xy(self.uni_draw())
+
+        self.drawings[2].center = (self.x[0] - self.v/1*np.sin(self.x[2]), self.x[1] + self.v/1*np.cos(self.x[2]))
 
 if __name__ == '__main__':
     obstacles = [np.array([3, 2])]  # obstacles
     r = .5  # radius of obstacles
 
-    Car = SmartCar(np.array([3, .7, np.pi/2]), obstacles, r)  # initialize SmartCar
+    Car = SmartCar(np.array([3, 0, np.pi/2]), obstacles, r)  # initialize SmartCar
     sys_list = [Car]  # set up list of systems that will be plotted
     ob_list = [patches.Circle(obs, r) for obs in obstacles]
 

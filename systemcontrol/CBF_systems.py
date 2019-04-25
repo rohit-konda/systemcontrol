@@ -49,7 +49,7 @@ class CBFSystem(ControlSystem):
         A = np.hstack((Cc, Ca))
         b = np.concatenate((bc, ba))
         G = self.G
-        aT = 1/2 * ud @ (self.G + self.G.T)
+        aT = 1/2 * np.dot(ud, (self.G + self.G.T))
         try:
             u_opt = solve_qp(self.G, aT, A, b)[0]
         except:
@@ -89,15 +89,15 @@ class FeasibleCBF(CBFSystem):
         """ control barrier function """
         if self.h == []:
             C = np.zeros((np.shape(self.g())[1], 1))
-            b = np.zeros((1,))
+            b = -np.ones((1,))
             return C, b
 
         C = np.zeros((np.shape(self.g())[1], len(self.h)))
         b = np.zeros((len(self.h),))
         for i in range(len(self.h)):
             h_dot = self.gradh(self.h[i])
-            Lfh = h_dot @ self.f()
-            Lgh = h_dot @ self.g()
+            Lfh = np.dot(h_dot, self.f())
+            Lgh = np.dot(h_dot, self.g())
             alpha = self.a[i](self.h[i](self.x))
             C[:, i] = np.array(Lgh)
             b[i] = -(alpha + Lfh)
@@ -159,11 +159,11 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
             h_dot = gradient[0:len(self.x)]
             h_dot_j = gradient[len(self.x):]
 
-            Lfh = h_dot @ self.f()
-            Lgh = h_dot @ self.g()
+            Lfh = np.dot(h_dot, self.f())
+            Lgh = np.dot(h_dot, self.g())
 
-            Lfhj = h_dot_j @ sysj.f()
-            Lghj = h_dot_j @ sysj.g()
+            Lfhj = np.dot(h_dot_j, sysj.f())
+            Lghj = np.dot(h_dot_j, sysj.g())
 
             alpha = self.ach((self.ch(self.x, sysj.x)))
 
