@@ -7,6 +7,7 @@ from math import ceil, log
 from systemcontrol.basic_systems import *
 from quadprog import solve_qp
 import traceback
+import matplotlib.pyplot as plt
 
 
 class CBFSystem(ControlSystem):
@@ -30,7 +31,11 @@ class CBFSystem(ControlSystem):
         raise NotImplementedError
 
     def input_cons(self):
-        """ actuation constraints """
+        """
+        actuation constraints
+        Ca: n x m array for constraints
+        ba: m, vector of constraints
+        """
         l = np.shape(self.g())[1]
         Ca = np.zeros((l, 1), dtype='float32')
         ba = np.array([-1.])
@@ -41,7 +46,15 @@ class CBFSystem(ControlSystem):
         raise NotImplementedError
 
     def qp_u(self, ud):
-        """ QP solver """
+        """
+        QP solver min x.T G x - a.T x subject to A.T x >= b
+        in this case: (u - ud).T G (u - ud) is quadratic objective
+        A =  n x m array of m constraints
+        b = m, vector for constraints
+        G = n x n objective quadratic term
+        a = n, objective linear term 
+
+        """
         Cc, bc = self.CBF()
         Ca, ba = self.input_cons()
         # parameters for solve_qp
@@ -49,9 +62,9 @@ class CBFSystem(ControlSystem):
         A = np.hstack((Cc, Ca))
         b = np.concatenate((bc, ba))
         G = self.G
-        aT = 1/2 * np.dot(ud, (self.G + self.G.T))
+        a = 1/2 * np.dot(ud, (self.G + self.G.T))
         try:
-            u_opt = solve_qp(self.G, aT, A, b)[0]
+            u_opt = solve_qp(self.G, a, A, b)[0]
         except:
             traceback.print_exc()
             # default controller for error handling
@@ -68,21 +81,20 @@ class FeasibleCBF(CBFSystem):
         self.a = a  # list of class K functions
         self.epsilon = 0.0  # higher epsilon promotes conservatism
 
-    def gradh(self, h):
-        """ numerical calculation of gradient of h """
-        x_cop = np.copy(self.x)
-        n = len(self.x)
+    def calc_grad(self, f, x_hat, step=.0001):
+        """ numerical calculation of gradient of f at x_hat """
+        n = len(x_hat)
         grad = np.zeros((n,))
-        step = .0001
 
         for i in range(n):
-            dh = []
+            df = []
             for dx in [-step, step]:
-                dx_state = self.x[i] + dx
-                x_cop[i] = dx_state
-                dh.append(h(x_cop))
+                temp = x_hat[i]
+                x_hat[i] += dx
+                df.append(f(x_hat))
+                x_hat[i] = temp
             # median approximation
-            grad[i] = np.diff(dh)/(2*step)
+            grad[i] = np.diff(df)/(2*step)
         return grad
 
     def CBF(self):
@@ -95,7 +107,7 @@ class FeasibleCBF(CBFSystem):
         C = np.zeros((np.shape(self.g())[1], len(self.h)))
         b = np.zeros((len(self.h),))
         for i in range(len(self.h)):
-            h_dot = self.gradh(self.h[i])
+            h_dot = self.calc_grad(self.h[i], np.copy(self.x))
             Lfh = np.dot(h_dot, self.f())
             Lgh = np.dot(h_dot, self.g())
             alpha = self.a[i](self.h[i](self.x))
@@ -105,13 +117,20 @@ class FeasibleCBF(CBFSystem):
 
 
 class CoupleCBF(FeasibleCBF, NetworkSystem):
-    """ Feasible Control Barrier Formulations for Coupled Systems """
+    """
+    Decentralized Formulation for barrier functions
+    for centralized, just use appended system and FeasibleCBF
+    """
 
-    def __init__(self, x, h=[], ch=[], sys_list=[], a=[]):
+    def __init__(self, x, ch=[], h=[], a=[]):
         FeasibleCBF.__init__(self, x, h, a)
-        NetworkSystem.__init__(self, x, sys_list)
-        self.ch = ch  # barrier between the coupled system
-        self.ach = ach  # class K function for coupled barrier
+
+        # list of tuples : (ch_i, ach_i, [sys_i]) for coupled barrier functions
+        # ch_i : coupled barrier function, takes multiple systems state as input
+        # ach_i: coupled alpha function
+        # [sys_i]: list of systems needed to evaluate ch_i
+        self.ch = ch
+        NetworkSystem.__init__(x, list(set([sys for chi in ch for sys in chi])))
 
     def u(self):
         """ feedback controller using coupled CBF """
@@ -125,37 +144,15 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
         u_opt = self.qp_u(ud)
         return u_opt[0:np.shape(self.g())[1]]
 
-    def gradch(self, ch,  j):
-        """ numerical calculation of gradient of barrier between 2 systems """
-        xi = np.copy(self.x)
-        xj = np.copy(self.sys_list[j].x)
-        n = len(xi)
-        grad = np.zeros((2*n,))
-        step = .001
-
-        for i in range(2*n):
-            dh = []
-            for dx in [-step, step]:
-                if i < n:
-                    dxstate = self.x[i] + dx
-                    xi[i] = dxstate
-                else:
-                    dxstate = self.sys_list[j].x[i-n] + dx
-                    xj[i-n] = dxstate
-                dh.append(ch(xi, xj))
-            # median approximation
-            grad[i] = np.diff(dh)/(2*step)
-        return grad
-
     def chCBF(self):
         """ Control barrier function for coupled system """
-        C = np.zeros((len(self.g()[1])*(length + 1), length))
-        b = np.zeros((length,))
+        m = len(self.ch)
+        C = np.zeros((len(self.g()[1])*(m + 1), m))
+        b = np.zeros((m,))
 
-        for j in range(length):
-            sysj = self.sys_list[j]
+        for j in range(m):
 
-            gradient = self.gradch(j)
+            gradient = self.calc_grad(self.ch[i][0])
             h_dot = gradient[0:len(self.x)]
             h_dot_j = gradient[len(self.x):]
 
@@ -165,7 +162,8 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
             Lfhj = np.dot(h_dot_j, sysj.f())
             Lghj = np.dot(h_dot_j, sysj.g())
 
-            alpha = self.ach((self.ch(self.x, sysj.x)))
+
+            alpha = self.ch[i][1](chi)
 
             l = len(self.g()[1])
 
@@ -180,17 +178,17 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
         """ Control barrier function for single system """
         l = np.shape(self.g())[1]
         n = l*(len(self.sys_list)+1)
-        if self.h:
-            Ch, bh = FeasibleCBF.CBF()
-            temp = np.zeros((n,))
-            temp[0:l] = Ch
-            Ch = np.reshape(temp, (n, 1))
-        else:
-            Ch, bh = (np.zeros((n, 1)), np.array([0]))
-        if self.ch and self.sys_list:
+
+        Ch, bh = FeasibleCBF.CBF()
+        temp = np.zeros((n,))
+        temp[0:l] = Ch
+        Ch = np.reshape(temp, (n, 1))
+
+        if self.ch:
             Cch, bch = self.chCBF()
         else:
-            Cch, bch = (np.zeros((n, 1)), np.array([0]))
+            Cch = np.zeros((n, 1))
+            bch = np.array([0])
 
         C = np.hstack((Ch, Cch))
         b = np.concatenate((bh, bch))

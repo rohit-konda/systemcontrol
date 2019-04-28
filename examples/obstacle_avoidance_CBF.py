@@ -19,34 +19,55 @@ class SmartCar(FeasibleCBF, SingleUnicycle, Actor):
     certain placed obstacled and go in a circle """
 
     def __init__(self, x, obstacles, r):
-        self.obstacles = obstacles
-        self.r = r
-        self.v = .5
+        self.obstacles = obstacles  # list of obstacles
+        self.r = r  # radius of obstacle
+        self.v = .4  # velocity constraint for barrier
+        self.w = 1  # maximum angular velocity
+        self.Ds = .5  # safety distance buffer between COM and obstacle
+        self.p = 3  # radius of limit cycle to converge to
 
         FeasibleCBF.__init__(self, x, self.seth(), self.seta())
         SingleUnicycle.__init__(self, x)
         Actor.__init__(self)
 
-    def u(self):
-        """ controller to go in a circle"""
-        K = 1
-        p = 2.5
-        norm = np.minimum((self.x[0]**2 + self.x[1]**2)**.5, 2*p)
-        td = np.arctan2(self.x[1], self.x[0]) + norm/p*np.pi/2
-        u = np.array([self.v, 1])
+    def nominal(self):
+        """
+        controller to go in a circle
+        set desired theta to converge to limit cycle
+        """
+        norm = np.minimum((self.x[0]**2 + self.x[1]**2)**.5, 2*self.p)
+        td = np.arctan2(self.x[1], self.x[0]) + norm/self.p*np.pi/2
+
+        u = np.array([self.v - .2, np.sin(td - self.x[2])])
         return u
 
+    def input_cons(self):
+        """ actuation constraints """
+        n = np.shape(self.g())[1]
+        Ca1 = np.identity(n, dtype='float32')
+        Ca2 = -np.identity(n, dtype='float32')
+        Ca = np.hstack((Ca1, Ca2))
+        ba = np.array([self.v, -self.w, -2, -self.w])
+        # constraints  are self.v <= v <= 2, -self.w <= w <= -self.w
+        return (Ca, ba)
+
     def seth(self):
-        listofh = []
-        w = 1
+        """ set up barrier functions """
+        listofh = []  # list of barrier function constraints
+        v = self.v
+        w = self.w
 
         for obs in self.obstacles:
-            listofh.append(lambda x:  (self.r - self.v/w)**2 -
-                                      (self.x[0] - obs[0] - self.v/w*np.sin(self.x[2]))**2 -
-                                      (self.x[1] - obs[1] + self.v/w*np.cos(self.x[2]))**2)
+            # create barrier functions
+            # applied a nested lambda trick to get scopes to work out
+            listofh.append((lambda y:
+                            lambda x: (x[0] - y[0] - v/w*np.sin(x[2]))**2 +
+                                      (x[1] - y[1] + v/w*np.cos(x[2]))**2 -
+                                      (v/w + self.r + self.Ds)**2)(obs))
         return listofh
 
     def seta(self):
+        """ alpha functions f(x) = x^3"""
         return [lambda x: x**3 for obs in obstacles]
 
     def uni_draw(self):
@@ -65,18 +86,22 @@ class SmartCar(FeasibleCBF, SingleUnicycle, Actor):
         return [p1, p2, p3]
 
     def draw_setup(self, axes):
+        """ draw self """
         self.drawings.append(plt.Polygon(xy=self.uni_draw(), color='red'))
 
     def draw_update(self, axes):
+        """ update position """
         self.drawings[0].set_xy(self.uni_draw())
 
 if __name__ == '__main__':
-    obstacles = [np.array([3, 2])]  # obstacles
+    obstacles = [np.array([3, 2]),
+                 np.array([-3, -2]),
+                 np.array([-.5, 2.5])]  # obstacles
     r = .5  # radius of obstacles
 
-    Car = SmartCar(np.array([3, .7, np.pi/2]), obstacles, r)  # initialize SmartCar
+    Car = SmartCar(np.array([6, -1, np.pi/2]), obstacles, r)  # initialize SmartCar
     sys_list = [Car]  # set up list of systems that will be plotted
-    ob_list = [patches.Circle(obs, r) for obs in obstacles]
+    ob_list = [patches.Circle(obs, r) for obs in obstacles]  # plot obstacles
 
     animator = Animate(sys_list, ob_list)
 
