@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='systemcontrol',
-      version='0.1',
+      version='1.0',
       description='Python package for developing controllers for various control systems',
       URL='https://github.gatech.edu/factslab/systemcontrol',
       author='Rohit Konda',

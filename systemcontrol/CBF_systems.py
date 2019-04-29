@@ -122,15 +122,58 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
     for centralized, just use appended system and FeasibleCBF
     """
 
-    def __init__(self, x, ch=[], h=[], a=[]):
+    def __init__(self, x, ch=[], h=[], a=[], G_self=None):
+        """
+        ch is list of tuples :(ch_i, ach_i, [sys_i]) for coupled barrier functions
+        ch_i : coupled barrier function, takes multiple systems state as input
+        ach_i: coupled alpha function
+        [sys_i]: list of systems needed to evaluate ch_i
+        """
         FeasibleCBF.__init__(self, x, h, a)
-
-        # list of tuples : (ch_i, ach_i, [sys_i]) for coupled barrier functions
-        # ch_i : coupled barrier function, takes multiple systems state as input
-        # ach_i: coupled alpha function
-        # [sys_i]: list of systems needed to evaluate ch_i
         self.ch = ch
-        NetworkSystem.__init__(x, list(set([sys for chi in ch for sys in chi])))
+        # initialize system list
+        NetworkSystem.__init__(self, x, list(set([sys for chi in ch for sys in chi])))
+        # initialize objective matrix
+        if not G_self:
+            self.G_self = np.identity(np.shape(self.g())[1])
+        self.setG()
+
+    def block_identity(self, arr_list):
+        """ generate a diagonal block matric from an array list """
+        row = sum([np.shape(arr)[0] for arr in arr_list])
+        col = sum([np.shape(arr)[1] for arr in arr_list])
+        blockarr = np.zeros((row, col))
+
+        r = 0
+        c = 0
+        for arr in arr_list:
+            ri, ci = np.shape(arr)
+            blockarr[r:r+ri, c:c+ci] = arr
+            r += ri
+            c += ci
+        return blockarr
+
+    def setG(self):
+        """
+        set the objective function for decentralized calculation
+        from list of system objective functions
+        """
+        G_list = [self.G_self] + [sys.G_self for sys in self.sys_list]
+        self.G = self.block_identity(G_list)
+
+    def input_cons(self):
+        """
+        set input constraints from combining  constraints from self_cons for 
+        all the systems in the neighborhood
+        """
+        Ca_list = [self.self_cons()[0]] + [sys.self_cons()[0] for sys in self.sys_list]
+        Ca = self.block_identity(Ca_list)
+        ba = np.concatenate([self.self_cons()[1]] + [sys.self_cons()[1] for sys in self.sys_list])
+        return Ca, ba
+
+    def self_cons(self):
+        """ constraint for self """
+        return CBFSystem.input_cons(self)
 
     def u(self):
         """ feedback controller using coupled CBF """
@@ -141,57 +184,65 @@ class CoupleCBF(FeasibleCBF, NetworkSystem):
             ud = np.concatenate((nom, sysnom))
         else:
             ud = nom
+        self.setG()
         u_opt = self.qp_u(ud)
         return u_opt[0:np.shape(self.g())[1]]
 
     def chCBF(self):
         """ Control barrier function for coupled system """
         m = len(self.ch)
-        C = np.zeros((len(self.g()[1])*(m + 1), m))
+        l = np.shape(self.g())[1]
+        num = sum([np.shape(sys.g())[1] for sys in self.sys_list])
+
+        C = np.zeros((num + l, m))
         b = np.zeros((m,))
 
-        for j in range(m):
+        for i in range(m):
+            chi = self.ch[i]
+            x_hat_i = np.array([xh for sys in chi[2] for xh in sys.x])
+            x_hat = np.concatenate((self.x, x_hat_i))
 
-            gradient = self.calc_grad(self.ch[i][0])
+            gradient = self.calc_grad(chi[0], x_hat)
             h_dot = gradient[0:len(self.x)]
-            h_dot_j = gradient[len(self.x):]
+            h_dot_i = gradient[len(self.x):]
 
             Lfh = np.dot(h_dot, self.f())
             Lgh = np.dot(h_dot, self.g())
 
-            Lfhj = np.dot(h_dot_j, sysj.f())
-            Lghj = np.dot(h_dot_j, sysj.g())
+            c = 0
+            Lfhi = 0.
+            Lghi = np.zeros((num,))
 
+            for sys in chi[2]:
+                k = len(sys.x)
+                Lfhi += np.dot(h_dot[c:c+k], sys.f())
+                sys_st = [i_ for i_ in range(len(self.sys_list)) if self.sys_list[i_] == sys][0]
+                sys_end = sys_st + np.shape(sys.g())[1]
+                Lghi[sys_st:sys_end] = np.dot(h_dot_i[c:c+k], sys.g())
+                c += k
 
-            alpha = self.ch[i][1](chi)
-
-            l = len(self.g()[1])
-
-            C[0:l, j] = Lgh
-            C[l*(j+1):l*(j+2), j] = Lghj
-
-            b[j] = -(alpha + Lfh + Lfhj)
+            alpha = chi[1](chi[0](x_hat))
+            C[0:l, i] = Lgh
+            C[l:, i] = Lghi
+            b[i] = -(alpha + Lfh + Lfhi)
 
         return C, b + self.epsilon
 
     def CBF(self):
-        """ Control barrier function for single system """
+        """ Control barrier function for concatenating couple and self CBF"""
         l = np.shape(self.g())[1]
-        n = l*(len(self.sys_list)+1)
+        num = sum([np.shape(sys.g())[1] for sys in self.sys_list])
 
-        Ch, bh = FeasibleCBF.CBF()
-        temp = np.zeros((n,))
-        temp[0:l] = Ch
-        Ch = np.reshape(temp, (n, 1))
+        Cf, bh = FeasibleCBF.CBF(self)
+        Ch = np.vstack((Cf, np.zeros((num, np.shape(Cf)[1]))))
 
         if self.ch:
             Cch, bch = self.chCBF()
+            C = np.hstack((Ch, Cch))
+            b = np.concatenate((bh, bch))
         else:
-            Cch = np.zeros((n, 1))
-            bch = np.array([0])
-
-        C = np.hstack((Ch, Cch))
-        b = np.concatenate((bh, bch))
+            C = Ch
+            b = bh
         return C, b
 
 
