@@ -21,7 +21,7 @@ def vecfield(system, lim=[-10, 10, -10, 10], res=1, ind=[0, 1]):
     XX = np.linspace(lim[0], lim[1], math.ceil((lim[1] - lim[0])*res)+1)
     YY = np.linspace(lim[2], lim[3], math.ceil((lim[3] - lim[2])*res)+1)
     XY = [[x, y] for x in XX for y in YY]
-    print(XY)
+
     X = [elem[0] for elem in XY]
     Y = [elem[1] for elem in XY]
     U = [0]*len(X)
