@@ -61,9 +61,9 @@ class SmartCar(FeasibleCBF, SingleUnicycle, Actor):
             # create barrier functions
             # applied a nested lambda trick to get scopes to work out
             listofh.append((lambda y:
-                            lambda x: (x[0] - y[0] - v/w*np.sin(x[2]))**2 +
-                                      (x[1] - y[1] + v/w*np.cos(x[2]))**2 -
-                                      (v/w + self.r + self.Ds)**2)(obs))
+                            lambda x: ((x[0] - y[0] - v/w*np.sin(x[2]))**2 +
+                                       (x[1] - y[1] + v/w*np.cos(x[2]))**2)**.5 -
+                                      (v/w + self.r + self.Ds))(obs))
         return listofh
 
     def seta(self):

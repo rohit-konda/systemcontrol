@@ -59,7 +59,7 @@ class Helicopter(DoubleIntegrator, Actor):
         self.drawings[0].set_transform(tr + axes.transData)
 
 if __name__ == '__main__':
-    random_pos = 8*np.random.rand(4)  # randomize initial state
+    random_pos = 16*np.random.rand(4)-8  # randomize initial state
     random_pos[2:] = 0  # set initial velocity to 0
     goal = [0, 0]  # go to the origin
 
