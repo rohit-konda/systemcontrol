@@ -5,10 +5,10 @@ system formulations with control barrier architechtures
 import numpy as np
 from math import ceil, log
 from systemcontrol.basic_systems import *
-from quadprog import solve_qp
+from cvxopt.solvers import qp
 import traceback
 import matplotlib.pyplot as plt
-
+solvers.options['show_progress'] = False
 
 class CBFSystem(ControlSystem):
     """ System with Control Barrier Formulation """
@@ -64,7 +64,8 @@ class CBFSystem(ControlSystem):
         G = self.G
         a = 1/2 * np.dot(ud, (self.G + self.G.T))
         try:
-            u_opt = solve_qp(self.G, a, A, b)[0]
+            u_opt = qp(self.G, a, A, b)
+            ################## CHANGE!!!!!!!!!!!!!!!!!!!!!!!     !!!! !! ! !
         except:
             traceback.print_exc()
             # default controller for error handling

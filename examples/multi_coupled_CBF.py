@@ -77,14 +77,14 @@ class FixedWing(CoupleCBF, SingleUnicycle, Actor):
         """ function to draw a triangle representing the unicycle model"""
 
         w = .3  # width
-        l = .75  # length
+        le = .75  # length
         th = self.x[2]  # direction
 
         # points for triangle for plotting
-        offset = np.array([l/2*np.cos(th), l/2*np.sin(th)]).T
+        offset = np.array([le/2*np.cos(th), le/2*np.sin(th)]).T
         p1 = self.x[0:2] + np.array([-w*np.sin(th), w*np.cos(th)]).T-offset
         p2 = self.x[0:2] + np.array([w*np.sin(th), -w*np.cos(th)]).T-offset
-        p3 = self.x[0:2] + np.array([l/2*np.cos(th), l/2*np.sin(th)]).T
+        p3 = self.x[0:2] + np.array([le/2*np.cos(th), le/2*np.sin(th)]).T
 
         return [p1, p2, p3]
 

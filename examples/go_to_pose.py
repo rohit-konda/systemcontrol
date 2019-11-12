@@ -68,6 +68,7 @@ class Robot(DoubleIntegrator, Actor):
         self.drawings[2].center = (x - offx, y + offy)
         self.drawings[3].center = (x, y)
 
+
 if __name__ == '__main__':
 
     random_pos = 5*np.random.rand(4)  # random position and random velocity

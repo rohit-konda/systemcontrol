@@ -9,7 +9,7 @@ setup(name='systemcontrol',
       license='None',
       packages=['systemcontrol'],
       install_requires=[
-          'numpy', 'quadprog', 'matplotlib'
+          'numpy', 'matplotlib', 'cxopt'
       ],
       classifiers=[
         'Programming Language :: Python',
